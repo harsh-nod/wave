@@ -434,7 +434,6 @@ def push_rotating_registers(
     arg_context: ArgumentContext,
     rotating_registers: dict[fx.Node, list[fx.Node]],
     graph: fx.Graph,
-    node_map: dict[fx.Node, fx.Node],
     create_new_nodes: bool = False,
 ) -> dict[fx.Node, deque[fx.Node]]:
     """
@@ -480,9 +479,6 @@ def push_rotating_registers(
                 mapped_iteration = arg_context.get_kernel_iteration(mapped_stage)
                 mapped_value = register
             arg_context[mapped_iteration, mapped_stage, node] = mapped_value
-            logger.debug(
-                f"Mapped orig: {node_map[node]} / mapped: {mapped_value} to stage {mapped_stage} at iteration {mapped_iteration}."
-            )
             count += 1
         if new_registers:
             new_rotating_registers[node] = new_registers
@@ -498,7 +494,6 @@ def construct_kernel(
     rotating_registers: dict[fx.Node, list[fx.Node]],
     induction_variable: IndexSymbol,
     new_induction_variables: list[int],
-    node_map: dict[fx.Node, fx.Node],
     visualize: bool = False,
     use_scheduling_barriers: bool = False,
     outer_vars: dict[fx.Node, list[fx.Node]] = {},
@@ -557,7 +552,6 @@ def construct_kernel(
             arg_context,
             rotating_registers,
             pipelined_reduction_graph,
-            node_map,
             create_new_nodes=True,
         )
 
@@ -619,7 +613,6 @@ def construct_epilogue(
     new_induction_variables: list[int],
     stages: list[int],
     num_rotating_registers: dict[fx.Node, int],
-    node_map: dict[fx.Node, fx.Node],
     visualize: bool = False,
     outer_vars: dict[fx.Node, list[fx.Node]] = {},
 ):
@@ -692,7 +685,7 @@ def construct_epilogue(
         )
 
         # Push the rotating registers onto the argument map.
-        push_rotating_registers(arg_context, rotating_registers, None, node_map, False)
+        push_rotating_registers(arg_context, rotating_registers, None, False)
         push_placeholders(reduction.implicit_captures, reduction_subgraph, arg_context)
 
         counter = offset + len(flattened_rotating_registers)
@@ -773,7 +766,6 @@ def construct_pipelined_loop(
     constraints: list[Constraint],
     num_stages: int,
     initiation_interval: int,
-    node_map: dict[fx.Node, fx.Node],
     max_induction_variable: int,
     visualize: bool = False,
     use_scheduling_barriers: bool = False,
@@ -823,7 +815,6 @@ def construct_pipelined_loop(
         rotating_registers,
         induction_variable,
         [induction_variable + i for i in range(num_stages)],
-        node_map,
         visualize,
         use_scheduling_barriers,
         outer_vars=outer_vars,
@@ -846,7 +837,6 @@ def construct_pipelined_loop(
         [max_induction_variable - num_stages + i for i in range(num_stages)],
         create_drain_stage_schedule(num_stages),
         num_rotating_registers,
-        node_map,
         visualize,
         outer_vars=outer_vars,
     )
